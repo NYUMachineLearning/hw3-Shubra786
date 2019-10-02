@@ -106,7 +106,6 @@ $$P(X)=e^{w_0 + w_1X}/{1+e^{w_0+w_1X}}$$
 \newpage
 
 ```{r}
-#install.packages("ROCR")
 #install.packages("pROC")
 #install.packages("glmnet")
 #install.packages("elasticnet")
@@ -155,7 +154,7 @@ dim(test_regression)
 
 ## Resampling in R
 ```{r}
-?trainControl
+#?trainControl
 ```
 
 ## Ridge Regression
@@ -284,7 +283,8 @@ confusionMatrix(LDA_predict$class, reference = test_classifier$Species)
 ```
 
 
-```{r}
+```{r, eval=FALSE}
+
 # save the predictions in a new variable
 predictions <- as.data.frame(LDA_predict$posterior) %>% 
   rownames_to_column("idx")
@@ -455,7 +455,7 @@ ggplot(data = test_classifier_log) +
 library(mlbench)
 data(BreastCancer)
 
-# The KNN approach will be used for classification, preferred over other methods because it is highly unbiased in nature and makes no prior assumptions of the underlying data. However, its major disadvantage is that it will not reduce the number of parameters to estimate, like parametric models do. Therefore, a large number of observations are required for an accurate estimation of the functional form of f. Fortunately in this case, the data set appears to be sufficiently large enough for a non-parametric approach.????
+# The KNN approach will be used for classification, preferred over other methods because it is highly unbiased in nature and makes no prior assumptions of the underlying data. However, its major disadvantage is that it will not reduce the number of parameters to estimate, like parametric models do. Therefore, a large number of observations are required for an accurate estimation of the functional form of f. Fortunately in this case, the data set appears to be sufficiently large enough for a non-parametric approach.
  
 # DATA WRANGLING
 
@@ -466,7 +466,7 @@ str(BreastCancer)
 
 sum(is.na(BreastCancer)) # 16 missing values present
 
-# visually identify which attribute(s) contain the missing values
+# visually identify which attribute(s) contains the missing values
 
 missmap(BreastCancer, main = 'Missing Values', col = c('yellow', 'black'), legend = FALSE)
 # map shows missing values all belong to one attribute: Bare.nuclei 
