@@ -105,6 +105,21 @@ $$P(X)=e^{w_0 + w_1X}/{1+e^{w_0+w_1X}}$$
 
 \newpage
 
+```{r}
+install.packages("ROCR")
+install.packages("pROC")
+install.packages("glmnet")
+install.packages("elasticnet")
+install.packages("Amelia")
+install.packages('e1071', dependencies=TRUE)
+install.packages("car")
+install.packages("class")
+install.packages("pROC")
+install.packages("VIM")
+
+```
+
+
 ```{r, include=FALSE}
 library(caret)
 library(ROCR)
@@ -116,6 +131,14 @@ library(dplyr)
 library(ggfortify)
 library(glmnet)
 library(tidyverse)
+library(elasticnet)
+library(Amelia)
+#library(e1071)
+library(car)
+library(class)
+library(pROC)
+library(VIM)
+
 ```
 
 Split data into training and test set
@@ -163,7 +186,7 @@ ggplot(data = plot_ridge_test_pred) +
   theme_bw()
 
 #median residual value should be close to zero
-median(resid(Ridge_regression))
+median(resid(Ridge_regression)) # -0.09496351
 ```
 
 
@@ -175,6 +198,11 @@ $$Lasso Regression=\sum_{i=1}^{n}(y_i - w_0 - \sum_{j=1}^{p}w_jx_{ij})^2 + \lamb
 2. Create and train model 
 ```{r}
 
+ctrl =  trainControl(method = "boot", 15)
+
+Lasso_regression <- train(Temp ~ Wind + Month, data = train_regression,
+                          method = 'lasso', trControl= ctrl)
+
 ```
 
 ```{r}
@@ -183,10 +211,18 @@ $$Lasso Regression=\sum_{i=1}^{n}(y_i - w_0 - \sum_{j=1}^{p}w_jx_{ij})^2 + \lamb
 Examine the residuals 
 ```{r}
 
-#plot the predicted values vs the observed values
+lasso_test_pred <- predict(Lasso_regression, newdata = test_regression)
 
+#plot the predicted values vs the observed values
+plot_lasso_test_pred <- data.frame(Temp_test_pred = lasso_test_pred, 
+                                   Observed_Temp = test_regression$Temp)
+ggplot(data = plot_lasso_test_pred) +
+  geom_point(aes(x=Observed_Temp, y = Temp_test_pred)) + 
+  ggtitle("True Temp Value vs Predicted Temp Value Lasso Regression") +
+  theme_bw()
 
 #median residual value should be close to zero
+median(resid(Lasso_regression)) # 0.1387928
 ```
 
 
@@ -415,13 +451,151 @@ ggplot(data = test_classifier_log) +
 1. Use the Breast Cancer dataset from the mlbench package, and predict whether the cancer is malignant or benign using one of the algorithms we learned about in class. Give some rationale as to why you chose this algorithm. Plot ROC curves, and confusion matrices. If you are choosing a hyperparameter like K or lambda, explain how and why you chose it. 
 
 ```{r}
-#libra
-#train
-#test
 
-##ctrl <- trainControl()
-## <- train(, data = , method = "", trControl = ctrl)
-## predict(, newdata="")
+library(mlbench)
+data(BreastCancer)
+
+# The KNN approach will be used for classification, preferred over other methods because it is highly unbiased in nature and makes no prior assumptions of the underlying data. However, its major disadvantage is that it will not reduce the number of parameters to estimate, like parametric models do. Therefore, a large number of observations are required for an accurate estimation of the functional form of f. Fortunately in this case, the data set appears to be sufficiently large enough for a non-parametric approach.????
+ 
+# DATA WRANGLING
+
+# view structure
+str(BreastCancer)
+
+# Missing value management
+
+sum(is.na(BreastCancer)) # 16 missing values present
+
+# visually identify which attribute(s) contain the missing values
+
+missmap(BreastCancer, main = 'Missing Values', col = c('yellow', 'black'), legend = FALSE)
+# map shows missing values all belong to one attribute: Bare.nuclei 
+
+# na.exclude function removes missing values but, unlike na.omit, may preserve the integrity of the analysis.  
+
+# NOTE: The k nearest neighbors algorithm can be used for imputing missing data. The means of the closest neighbors to the missing data are used for imputation. However, this approach was tried and resulted in a higher test error rate. Therefore, the na.exclude function is preferred.
+
+# apply na.exclude function
+BreastCancer <- na.exclude(BreastCancer)
+
+# re-check number of missing values
+sum(is.na(BreastCancer)) # nil na values
+
+# Ordering will impact on the integrity of the analysis, therefore it is removed from ordinal factors
+BreastCancer$Cl.thickness <- factor(BreastCancer$Cl.thickness, ordered = FALSE)
+BreastCancer$Cell.size <- factor(BreastCancer$Cell.size, ordered = FALSE)
+BreastCancer$Cell.shape <- factor(BreastCancer$Cell.shape, ordered = FALSE)
+BreastCancer$Marg.adhesion <- factor(BreastCancer$Marg.adhesion, ordered = FALSE)
+BreastCancer$Epith.c.size <- factor(BreastCancer$Epith.c.size, ordered = FALSE)
+
+# remove Id variable as not required for analysis
+BreastCancer <- select(BreastCancer, -Id)
+
+# check removal
+str(BreastCancer)
+
+# visually explore data
+ggplot(BreastCancer, aes(Class)) + geom_bar(fill = 'darkblue') 
+# shows number of benign cancers are substantially more than malignant cancers
+
+# obtain precise figures for benign and malignant cancers
+table(BreastCancer$Class)
+#  benign malignant 
+#     444       239
+
+# obtain percentages for benign and malignant cancers
+round(prop.table(table(BreastCancer$Class)) * 100, digits = 1)
+# benign malignant 
+#     65        35
+
+
+```
+
+
+```{r} 
+
+# TRAIN AND FIT MODEL
+
+# re-label classification variable (variable that lists numbers of benign and malignant cancers)
+Cancer_class <- BreastCancer[,10]
+
+# classification variable requires removal from main data set when using KNN (and will be split into training and test sets separately)
+BreastCancer_attributes <- BreastCancer[,-10]
+
+# split into training and test sets
+
+train_size <- floor(0.75 * nrow(BreastCancer_attributes))
+set.seed(543)
+train_pos <- sample(seq_len(nrow(BreastCancer_attributes)), size = train_size)
+train_classifier <- BreastCancer_attributes[train_pos,]
+Cancer_class.train <- Cancer_class[train_pos]
+test_classifier <- BreastCancer_attributes[-train_pos,]
+Cancer_class.test <- Cancer_class[-train_pos]
+
+# check dimensions of sets
+dim(train_classifier)
+dim(test_classifier)
+
+# K VALUE SELECTION
+
+# The k value is selected using the convention of taking the square root of the total number of observations ie square root of 683 is 26.13, rounded to 26. Note: if the original observation figure of 699 (that included the null values) is used, the rounded square root is still 26.
+
+# MODEL
+
+Predicted.Cancer_class <- knn(train = train_classifier, test = test_classifier,cl = Cancer_class.train, k=26, prob = TRUE)
+
+# EVALUATION Of PERFORMANCE
+
+# ROC plot
+
+x = attr(Predicted.Cancer_class,"prob")
+x[Predicted.Cancer_class == 'benign'] = 1-x[Predicted.Cancer_class == 'benign']
+roc(Cancer_class.test, x, plot = TRUE)
+# area under the curve: 0.9953
+# Shape of plot looks favourable: it would appear KNN is an appropriate classification method for this data set.
+
+# test error rate
+
+mean(Cancer_class.test != Predicted.Cancer_class)
+# 0.01754386 -> appears to be a v.good result
+
+# confusion matrix
+
+confusionMatrix(Predicted.Cancer_class, 
+                reference = Cancer_class.test)
+
+# 56 out of 56 MALIGNANT cancers were correctly identified, and only 3 of the 115 BENIGN cancers were incorrectly identified. Conclusion: this would appear to be a very good model. For this model, false negatives are better than false positives ie it is better to predict a benign cancer as malignant than to predict a malignant cancer as benign. Essentially, the model should not miss detecting a malignant cancer.
+
+# CAN THE MODEL BE IMPROVED?
+
+# The model may be improved by using a different k value. This can be explored by changing the k value, and then calculating the error rate to see if it decreases with the new k value. An efficient way to do this is with a loop: a range of k values can be tested in this manner.    k values ranging from 1 to 40 will be tested. 
+
+# k value loop
+
+Predicted.Cancer_class = NULL
+error.rate = NULL
+
+for(i in 1:40){
+    set.seed(101)
+    Predicted.Cancer_class = knn(train_classifier,test_classifier,Cancer_class.train,k=i)
+    error.rate[i] = mean(Cancer_class.test != Predicted.Cancer_class)
+}
+error.rate # Demonstrates that the lowest error rate is 0.01754386, which is the error rate associated with the k value of 26 that was used. Note that this same error rate is associated with the range of k values between 20 to 34.
+
+# Correct selection of the k value can be visually confirmed by the ELBOW method, by plotting the various error rates for the range of k values.
+
+k.values <- 1:40
+
+error.dataframe <- data.frame(error.rate, k.values)
+
+error.dataframe
+
+ggplot(error.dataframe, aes(x = k.values, y = error.rate)) + geom_point() +        geom_line(lty = "dotted", color = 'red')
+
+# The plot confirms that the k value of 26 that was selected is associated with the lowest error rate. Therefore, the optimal k value has been chosen, and the performance of the model has been optimised in that respect.
+
+
+
 ```
 
 
