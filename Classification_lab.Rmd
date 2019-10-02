@@ -106,16 +106,16 @@ $$P(X)=e^{w_0 + w_1X}/{1+e^{w_0+w_1X}}$$
 \newpage
 
 ```{r}
-install.packages("ROCR")
-install.packages("pROC")
-install.packages("glmnet")
-install.packages("elasticnet")
-install.packages("Amelia")
-install.packages('e1071', dependencies=TRUE)
-install.packages("car")
-install.packages("class")
-install.packages("pROC")
-install.packages("VIM")
+#install.packages("ROCR")
+#install.packages("pROC")
+#install.packages("glmnet")
+#install.packages("elasticnet")
+#install.packages("Amelia")
+#install.packages('e1071', dependencies=TRUE)
+#install.packages("car")
+#install.packages("class")
+#install.packages("pROC")
+#install.packages("VIM")
 
 ```
 
